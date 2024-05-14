@@ -21,12 +21,14 @@ namespace TranslationBot.Translation
         private readonly string _botId;
         private readonly string _tenantId;
         private readonly string _tokenEndPoint;
+        private readonly string _apiVersion;
 
         public TokenService(IConfiguration configuration)
         {
             _botId = configuration["BotId"];
             _tenantId = configuration["TenantId"];
             _tokenEndPoint = configuration["TokenEndPoint"];
+            _apiVersion = configuration["ApiVersion"];
         }
 
         /// <summary>
@@ -40,7 +42,7 @@ namespace TranslationBot.Translation
             {
                 httpRequest.Method = HttpMethod.Get;
                 UriBuilder uriBuilder = new UriBuilder(_tokenEndPoint);
-                uriBuilder.Query = $"botId={_botId}&tenantId={_tenantId}";
+                uriBuilder.Query = $"botId={_botId}&tenantId={_tenantId}&api-version={_apiVersion}";
                 httpRequest.RequestUri = uriBuilder.Uri;
                 using (var response = await s_httpClient.SendAsync(httpRequest))
                 {

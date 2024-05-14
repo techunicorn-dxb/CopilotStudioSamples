@@ -15,8 +15,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Translation.Helpers;
 using Newtonsoft.Json;
 using TranslationBot.Translation.Helpers;
-using Microsoft.Bot.Connector;
-using TranslationBot.Translation.Model;
+using Microsoft.Bot.Schema;
+using ActivityTypes = Microsoft.Bot.Schema.ActivityTypes;
 
 namespace TranslationBot.Translation
 {
@@ -88,10 +88,11 @@ namespace TranslationBot.Translation
             if (turnContext.Activity.ChannelData != null && TranslationSettings.OcControlTag.Any(phrase => turnContext.Activity.ChannelData.ToString().Contains(phrase, StringComparison.OrdinalIgnoreCase)))
                 return;
 
-            if (turnContext.Activity.Type == ActivityTypes.Message)
+            if (turnContext.Activity.Type == Microsoft.Bot.Schema.ActivityTypes.Message)
             {
                 var urlLanguage = _languages.Get(TranslationSettings.DefaultDictionaryKey);
-                var userlanguage = await _stateLanguage.GetAsync(turnContext, () => string.Empty, cancellationToken);
+                var userlanguage = turnContext.Activity.GetLocale();//await _stateLanguage.GetAsync(turnContext, () => string.Empty, cancellationToken);
+                
 
                 // Detect the user language if not already identified
                 if ((_detectLanguageOnce && string.IsNullOrEmpty(userlanguage)) && !_getLanguageFromUri || !_detectLanguageOnce)
@@ -130,11 +131,14 @@ namespace TranslationBot.Translation
                 }
 
                 // Post the user message and get the bot responses
+                if (!language.StartsWith(this._botLanguage)) {
+                    await TranslateMessageActivityAsync(turnContext.Activity, this._botLanguage, cancellationToken);
+                }
                 var response = await _directLineService.PostUserMessage(
-                    new Activity()
+                    new Microsoft.Bot.Connector.DirectLine.Activity()
                     {
                         Type = turnContext.Activity.Type,
-                        From = new ChannelAccount { Id = turnContext.Activity.From.Id, Name = turnContext.Activity.From.Name },
+                        From = new Microsoft.Bot.Connector.DirectLine.ChannelAccount { Id = turnContext.Activity.From.Id, Name = turnContext.Activity.From.Name },
                         Text = turnContext.Activity.Text,
                         Value = turnContext.Activity.Value,
                         TextFormat = turnContext.Activity.TextFormat,
@@ -232,7 +236,7 @@ namespace TranslationBot.Translation
             }
         }
 
-        private Microsoft.Bot.Schema.Activity CreateActivity(Activity directlineActivity)
+        private Microsoft.Bot.Schema.Activity CreateActivity(Microsoft.Bot.Connector.DirectLine.Activity directlineActivity)
         {
             var activity = new Microsoft.Bot.Schema.Activity();
 

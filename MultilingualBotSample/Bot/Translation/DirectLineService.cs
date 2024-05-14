@@ -8,6 +8,7 @@ using System.Threading;
 using System;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
+using System.Net.Http;
 
 namespace TranslationBot.Translation
 {
@@ -15,10 +16,12 @@ namespace TranslationBot.Translation
     {
         private const int _botReplyWaitIntervalInMilSec = 3000;
         private string _botName;
+        private Uri _baseUri;
 
         public DirectLineService(IConfiguration configuration)
         {
             _botName = configuration["BotName"];
+            _baseUri = new Uri(configuration["BotDirectlineUrl"]);
         }
 
         /// <summary>
@@ -28,14 +31,11 @@ namespace TranslationBot.Translation
         /// <param name="activity">activity to be sent</param>
         public async Task<string> StartConversation(string token)
         {
-            using (var directLineClient = new DirectLineClient(token))
-            {
-                var conversation = await directLineClient.Conversations.StartConversationAsync();
-                if (conversation == null) {
-                    throw new Exception("conversation is null");
-                }
-                return conversation.ConversationId;
-            }
+            using var directLineClient = new DirectLineClient(token){
+                BaseUri = this._baseUri,
+            };
+            var conversation = await directLineClient.Conversations.StartConversationAsync() ?? throw new Exception("conversation is null");
+            return conversation.ConversationId;
         }
 
         /// <summary>
@@ -48,17 +48,17 @@ namespace TranslationBot.Translation
         /// <param name="watermark">current watermark</param>
         public async Task<ActivitySet> PostUserMessage(Activity activity, string token, string conversationId, string watermark)
         {
-            using (var directLineClient = new DirectLineClient(token))
-            {
-                // Send user message using directlineClient
-                var res = await directLineClient.Conversations.PostActivityAsync(conversationId, activity);
+            using var directLineClient = new DirectLineClient(token){
+                BaseUri = this._baseUri,
+            };
+            // Send user message using directlineClient
+            var res = await directLineClient.Conversations.PostActivityAsync(conversationId, activity);
 
-                Thread.Sleep(_botReplyWaitIntervalInMilSec);
+            Thread.Sleep(_botReplyWaitIntervalInMilSec);
 
-                // Get bot response using directlinClient
-                var responses = await GetBotResponseActivitiesAsync(directLineClient, conversationId, watermark);
-                return responses;
-            }
+            // Get bot response using directlinClient
+            var responses = await GetBotResponseActivitiesAsync(directLineClient, conversationId, watermark);
+            return responses;
         }
 
         /// <summary>
