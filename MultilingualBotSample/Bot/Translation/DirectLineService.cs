@@ -31,6 +31,9 @@ namespace TranslationBot.Translation
             using (var directLineClient = new DirectLineClient(token))
             {
                 var conversation = await directLineClient.Conversations.StartConversationAsync();
+                if (conversation == null) {
+                    throw new Exception("conversation is null");
+                }
                 return conversation.ConversationId;
             }
         }
