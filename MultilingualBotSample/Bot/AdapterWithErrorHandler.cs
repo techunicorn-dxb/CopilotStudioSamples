@@ -28,7 +28,7 @@ namespace TranslationBot
                 // Send a message to the user
                 await turnContext.SendActivityAsync("The bot encountered an error or bug.");
                 await turnContext.SendActivityAsync(exception.Message);
-								await turnContext.SendActivityAsync(exception.Trace);
+				await turnContext.SendActivityAsync(exception.StackTrace);
 
                 if (conversationState != null)
                 {
