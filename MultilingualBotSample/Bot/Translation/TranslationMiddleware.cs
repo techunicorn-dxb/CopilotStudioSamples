@@ -92,30 +92,11 @@ namespace TranslationBot.Translation
             {
                 var urlLanguage = _languages.Get(TranslationSettings.DefaultDictionaryKey);
                 var userlanguage = turnContext.Activity.GetLocale();//await _stateLanguage.GetAsync(turnContext, () => string.Empty, cancellationToken);
-                
-
-                // Detect the user language if not already identified
-                if ((_detectLanguageOnce && string.IsNullOrEmpty(userlanguage)) && !_getLanguageFromUri || !_detectLanguageOnce)
-                {
-                    language = await _translator.DetectAsync(turnContext.Activity.Text, cancellationToken);
-                }
-                else if ((_getLanguageFromUri && string.IsNullOrEmpty(userlanguage)) && !string.IsNullOrEmpty(urlLanguage))
-                {
-                    language = urlLanguage;
-                }
-                else
-                {
+    
+                if (_detectLanguageOnce || string.IsNullOrEmpty(userlanguage)) {
+                    language = await _translator.DetectAsync(turnContext.Activity.Text, userlanguage, cancellationToken);
+                } else {
                     language = userlanguage;
-                }
-
-                // Check the flag and avoid the translation
-                if (!nextTurnExcepted && !string.IsNullOrEmpty(turnContext.Activity.Text))
-                {
-                    turnContext.Activity.Text = await _translator.TranslateAsync(turnContext.Activity.Text, cancellationToken, language, _botLanguage);
-                }
-                else
-                {
-                    await _nextTurnExcepted.SetAsync(turnContext, false, cancellationToken);
                 }
 
                 if (string.IsNullOrEmpty(token))

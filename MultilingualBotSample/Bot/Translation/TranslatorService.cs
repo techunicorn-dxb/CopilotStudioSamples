@@ -62,14 +62,12 @@ namespace TranslationBot.Translation
             }
         }
 
-        public async Task<string> DetectAsync(string text, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<string> DetectAsync(string text, string fallbackLanguage, CancellationToken cancellationToken = default(CancellationToken))
         {
-
             var responseBody = await MakeRequest(DetectPath, text, cancellationToken);
             var result = JsonConvert.DeserializeObject<DetectorResponse[]>(responseBody);
-            var language = result?.FirstOrDefault()?.Language;
+            var language = result?.FirstOrDefault().Language ?? fallbackLanguage;
             return language;
-
         }
 
         public async Task<string> MakeRequest(string path, string text, CancellationToken cancellationToken)
