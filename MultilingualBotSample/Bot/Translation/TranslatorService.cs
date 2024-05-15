@@ -40,7 +40,7 @@ namespace TranslationBot.Translation
             _categoryId = categoryId;
         }
 
-        public async Task<string> TranslateAsync(string text, CancellationToken cancellationToken, string fromLanguage, string toLanguage)
+        public async Task<string> TranslateAsync(string text, string fromLanguage, string toLanguage, CancellationToken cancellationToken)
         {
             if (fromLanguage != toLanguage)
             {

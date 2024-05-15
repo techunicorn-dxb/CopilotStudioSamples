@@ -88,7 +88,7 @@ namespace TranslationBot.Translation
             if (turnContext.Activity.ChannelData != null && TranslationSettings.OcControlTag.Any(phrase => turnContext.Activity.ChannelData.ToString().Contains(phrase, StringComparison.OrdinalIgnoreCase)))
                 return;
 
-            if (turnContext.Activity.Type == Microsoft.Bot.Schema.ActivityTypes.Message)
+            if (turnContext.Activity.Type == ActivityTypes.Message)
             {
                 var urlLanguage = _languages.Get(TranslationSettings.DefaultDictionaryKey);
                 var userlanguage = turnContext.Activity.GetLocale();//await _stateLanguage.GetAsync(turnContext, () => string.Empty, cancellationToken);
@@ -113,7 +113,7 @@ namespace TranslationBot.Translation
 
                 // Post the user message and get the bot responses
                 if (!language.StartsWith(this._botLanguage)) {
-                    await TranslateMessageActivityAsync(turnContext.Activity, this._botLanguage, cancellationToken);
+                    await TranslateMessageActivityAsync(turnContext.Activity, language, this._botLanguage, cancellationToken);
                 }
                 var response = await _directLineService.PostUserMessage(
                     new Microsoft.Bot.Connector.DirectLine.Activity()
@@ -157,7 +157,7 @@ namespace TranslationBot.Translation
                     }
                     else
                     {
-                        await TranslateMessageActivityAsync(replyActivity, language, cancellationToken);
+                        await TranslateMessageActivityAsync(replyActivity, this._botLanguage, language, cancellationToken);
                         await turnContext.SendActivityAsync(replyActivity, cancellationToken);
                     }
                 }
@@ -176,21 +176,21 @@ namespace TranslationBot.Translation
         /// <param name="language">Target language.</param>
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        private async Task TranslateMessageActivityAsync(Microsoft.Bot.Schema.Activity activity, string language, CancellationToken cancellationToken = default(CancellationToken))
+        private async Task TranslateMessageActivityAsync(Microsoft.Bot.Schema.Activity activity, string fromLanguage, string toLanguage, CancellationToken cancellationToken = default(CancellationToken))
         {
             if (activity.Type == ActivityTypes.Message)
             {
                 if (activity.Text != null)
                 {
-                    activity.Text = await _translator.TranslateAsync(activity.Text, cancellationToken, _botLanguage, language);
+                    activity.Text = await _translator.TranslateAsync(activity.Text, fromLanguage, toLanguage, cancellationToken);
                 }
 
                 if (activity.SuggestedActions != null)
                 {
                     foreach (var action in activity.SuggestedActions.Actions)
                     {
-                        action.Title = await _translator.TranslateAsync(action.Title, cancellationToken, _botLanguage, language);
-                        action.Value = await _translator.TranslateAsync(action.Value.ToString(), cancellationToken, _botLanguage, language);
+                        action.Title = await _translator.TranslateAsync(action.Title, fromLanguage, toLanguage, cancellationToken);
+                        action.Value = await _translator.TranslateAsync(action.Value.ToString(), fromLanguage, toLanguage, cancellationToken);
                     }
                 }
 
@@ -206,7 +206,7 @@ namespace TranslationBot.Translation
                         {
                             if (!string.IsNullOrEmpty(match.ToString()))
                             {
-                                var translatedText = await _translator.TranslateAsync(match.ToString(), cancellationToken, _botLanguage, language);
+                                var translatedText = await _translator.TranslateAsync(match.ToString(), fromLanguage, toLanguage, cancellationToken);
                                 stringContent = stringContent.Replace(match.ToString(), translatedText);
                             }
                         }
