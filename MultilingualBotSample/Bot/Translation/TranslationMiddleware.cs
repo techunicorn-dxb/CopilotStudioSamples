@@ -164,6 +164,76 @@ namespace TranslationBot.Translation
 
                 await _stateLanguage.SetAsync(turnContext, language, cancellationToken);
                 await _conversationState.SaveChangesAsync(turnContext, false, cancellationToken);
+            } else if (turnContext.Activity.Type == ActivityTypes.Invoke && turnContext.Activity.Name == "InitConversation"){
+                var urlLanguage = _languages.Get(TranslationSettings.DefaultDictionaryKey);
+                var userlanguage = turnContext.Activity.GetLocale();//await _stateLanguage.GetAsync(turnContext, () => string.Empty, cancellationToken);
+    
+                if (_detectLanguageOnce || string.IsNullOrEmpty(userlanguage)) {
+                    language = await _translator.DetectAsync(turnContext.Activity.Text, userlanguage, cancellationToken);
+                } else {
+                    language = userlanguage;
+                }
+
+                if (string.IsNullOrEmpty(token))
+                {
+                    token = await _tokenService.GetTokenAsync();
+                    await _token.SetAsync(turnContext, token, cancellationToken);
+                }
+
+                if (string.IsNullOrEmpty(conversationId))
+                {
+                    conversationId = await _directLineService.StartConversation(token);
+                    await _conversationId.SetAsync(turnContext, conversationId, cancellationToken);
+                }
+                
+                var response = await _directLineService.PostUserMessage(
+                    new Microsoft.Bot.Connector.DirectLine.Activity()
+                    {
+                        Type = ActivityTypes.Message,
+                        From = new Microsoft.Bot.Connector.DirectLine.ChannelAccount { Id = turnContext.Activity.From.Id, Name = turnContext.Activity.From.Name },
+                        Text = "conv-restart",
+                        Value = "",
+                        Locale = turnContext.Activity.Locale,
+                    },
+                    token,
+                    conversationId,
+                    watermark);
+
+                await _watermark.SetAsync(turnContext, response.Watermark, cancellationToken);
+
+                foreach (var activity in response.Activities)
+                {
+                    // Re-create the DirectLine actvity to Bot.Schema.Activity
+                    var replyActivity = CreateActivity(activity);
+
+                    if (turnContext.Activity.ChannelId.Equals(TranslationSettings.OcChannelId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (_escalationPhrases.Any(phrase => !string.IsNullOrEmpty(replyActivity.Text) && replyActivity.Text.Contains(phrase, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            // Escalates the conversation to an agent
+                            Dictionary<string, object> contextVars = new Dictionary<string, object>() { { "HandOffPhrase", replyActivity.Text } };
+                            OmnichannelBotClient.AddEscalationContext(replyActivity, contextVars);
+                        }
+                        else
+                        {
+                            // Bridge the bot message for Omnichannel support
+                            OmnichannelBotClient.BridgeBotMessage(replyActivity);
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(replyActivity.Text) && replyActivity.Text.Equals(_pvaTopicExceptionTag, StringComparison.OrdinalIgnoreCase))
+                    {
+                        await _nextTurnExcepted.SetAsync(turnContext, true, cancellationToken);
+                    }
+                    else
+                    {
+                        await TranslateMessageActivityAsync(replyActivity, this._botLanguage, language, cancellationToken);
+                        await turnContext.SendActivityAsync(replyActivity, cancellationToken);
+                    }
+                }
+
+                await _stateLanguage.SetAsync(turnContext, language, cancellationToken);
+                await _conversationState.SaveChangesAsync(turnContext, false, cancellationToken);
             }
             
             await next(cancellationToken).ConfigureAwait(false);
@@ -180,6 +250,7 @@ namespace TranslationBot.Translation
         {
             if (activity.Type == ActivityTypes.Message)
             {
+                activity.SetLocale("en-US");
                 if (activity.Text != null)
                 {
                     activity.Text = await _translator.TranslateAsync(activity.Text, fromLanguage, toLanguage, cancellationToken);
@@ -194,7 +265,7 @@ namespace TranslationBot.Translation
                     }
                 }
 
-                if (activity.Attachments != null)
+                if (activity.Attachments != null )
                 {
                     foreach (var attachment in activity.Attachments)
                     {
